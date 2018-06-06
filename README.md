@@ -15,7 +15,7 @@ If you find this help, please kindly cite our paper:<br>
 
 You can simply train a RAM on VeRi by running:<br>
 ```
-./train_veri.sh
+sh train_veri.sh
 ```
 Note that, we actually train the RAM in a step-by-step manner as we present in our paper. So that, directly train the whole RAM may result in performance a little lower than we report in our paper. Our models on VeRi can be downloaded from [here](https://pan.baidu.com/s/17fnjp1fAvWNmIrF1wzkQqg).
 
