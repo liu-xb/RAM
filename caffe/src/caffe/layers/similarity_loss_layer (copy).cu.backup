@@ -1,0 +1,338 @@
+#include <algorithm>
+#include <vector>
+#include <map>
+
+#include "caffe/layers/similarity_loss_layer.hpp"
+#include "caffe/util/math_functions.hpp"
+
+namespace caffe
+{
+	template <typename Dtype>
+	void SimilarityLossLayer<Dtype>::Forward_gpu(
+		const vector<Blob<Dtype>*>& bottom,	const vector<Blob<Dtype>*>& top)
+	{
+		const Dtype* bottom_data = bottom[0]->gpu_data();
+		const int label_num = bottom[1]->count() / batch_size_;
+		const int count = bottom[0]->count();
+		const Dtype* label = bottom[1]->cpu_data();
+		const Dtype loss_weight = top[0]->cpu_diff()[0] / 4;
+		Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
+		Dtype loss(0.0);
+		bool if_sim(0);
+		sll_gpu_nrm2<Dtype>(code_length_, batch_size_, bottom_data,
+			norm_vec_.mutable_cpu_data());
+
+		caffe_gpu_gemm<Dtype>(CblasTrans, CblasNoTrans, batch_size_ - 1,
+			batch_size_ - 1, 1, Dtype(1.0), norm_vec_.gpu_data(),
+			norm_vec_.gpu_data() + 1, Dtype(0.0), norm_mat_.mutable_gpu_data());
+
+		caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasTrans, batch_size_ - 1,
+			batch_size_ - 1, code_length_, Dtype(1.0), bottom_data,
+			bottom_data + code_length_, Dtype(0.0),
+			dot_product_mat_.mutable_gpu_data());
+
+		cudaMemset(bottom_diff, 0, sizeof(Dtype) * count);
+		srand((unsigned int)(time(NULL)));
+		int num_par(0);
+		for (int i = 0; i < batch_size_; ++i)
+		{
+			int sim_j(-1);
+			int dis_j(-1);
+			Dtype similarity_sim(1.1);
+			Dtype similarity_dis(0);
+			for (int j = 0; j < batch_size_; ++j)
+			{
+				if (label_num > 1)
+				{
+					if_sim = caffe_cpu_dot(label_num, 
+						label + i * label_num,
+						label + j * label_num) > 0;
+				}
+				else
+				{
+					if_sim = ((static_cast<int>(label[i])) == 
+						(static_cast<int>(label[j])));
+				}
+				if (!if_sim)
+				{
+					continue;
+				}
+				int locat_temp = i * (batch_size_ - 1) + j - 1;
+				Dtype similarity_temp = 
+					(dot_product_mat_.cpu_data()[locat_temp]) /
+			    (norm_mat_.cpu_data()[locat_temp] + 1e-10);
+			  if (similarity_temp == 0)
+			  {
+			  	continue;
+			  }
+			  if (similarity_temp >= similarity_sim)
+			  {
+			  	continue;
+			  }
+			  similarity_sim = similarity_temp;
+			  sim_j = j;
+			}
+			for (int j = 0; j < batch_size_; ++j)
+			{
+				if (label_num > 1)
+				{
+					if_sim = caffe_cpu_dot(label_num,
+						label + i * label_num,
+						label + j * label_num) > 0;
+				}
+				else
+				{
+					if_sim = label[i] == label[j];
+				}
+				if (if_sim)
+				{
+					continue;
+				}
+				int locat_temp = i * (batch_size_ - 1) + j - 1;
+				Dtype similarity_temp =
+					(dot_product_mat_.cpu_data()[locat_temp]) /
+				  (norm_mat_.cpu_data()[locat_temp] + 1e-10);
+				if (similarity_temp == 0)
+				{
+					continue;
+				}
+				if (similarity_temp <= similarity_dis)
+				{
+					continue;
+				}
+				similarity_dis = similarity_temp;
+				dis_j = j;
+			}
+			++num_par;
+			if ( similarity_dis + alpha_ > similarity_sim)
+			{
+				if (dis_j == -1)
+				{
+					continue;
+				}
+				if (sim_j == -1)
+				{
+					continue;
+				}
+				loss += similarity_dis + alpha_ - similarity_sim;
+				int locat_sim = i * (batch_size_ - 1) + sim_j - 1;
+				int locat_dis = i * (batch_size_ - 1) + dis_j - 1;
+				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_sim) /
+					(norm_vec_.cpu_data()[i] + 1e-10) /
+					(norm_vec_.cpu_data()[i] + 1e-10),
+					bottom_data + i * code_length_, 0.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, 1.0 /
+					(norm_mat_.cpu_data()[locat_sim] + 1e-10),
+					bottom_data + sim_j * code_length_, 1.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, (-1.0 * loss_weight),
+					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+					bottom_diff + i * code_length_);
+
+				//gradient w.r.t image j sim
+				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_sim) /
+					(norm_vec_.cpu_data()[sim_j] + 1e-10) / 
+					(norm_vec_.cpu_data()[sim_j] + 1e-10),
+					bottom_data + sim_j * code_length_, (Dtype)0.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, ((Dtype)1.0) /
+					(norm_mat_.cpu_data()[locat_sim] + 1e-10),
+					bottom_data + i * code_length_, (Dtype)1.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, (-1.0 * loss_weight),
+					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+					bottom_diff + sim_j * code_length_);
+
+				// gradient w.r.t image i dis
+				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_dis) /
+					(norm_vec_.cpu_data()[i] + 1e-10) /
+					(norm_vec_.cpu_data()[i] + 1e-10),
+					bottom_data + i * code_length_, (Dtype)0.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, ((Dtype)1.0) /
+					(norm_mat_.cpu_data()[locat_dis] + 1e-10),
+					bottom_data + dis_j * code_length_, (Dtype)1.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, loss_weight,
+					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+					bottom_diff + i * code_length_);
+
+				//gradient w.r.t image j_dis
+				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_dis) /
+					(norm_vec_.cpu_data()[dis_j] + 1e-10) /
+					(norm_vec_.cpu_data()[dis_j] + 1e-10),
+					bottom_data + dis_j * code_length_, (Dtype)0.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, ((Dtype)1.0) /
+					(norm_mat_.cpu_data()[locat_dis] + 1e-10),
+					bottom_data + i * code_length_, (Dtype)1.0,
+					temp_diff_vec_.mutable_gpu_data());
+
+				caffe_gpu_axpby<Dtype>(code_length_, loss_weight,
+					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+					bottom_diff + dis_j * code_length_);
+			}
+		}
+		top[0]->mutable_cpu_data()[0] = loss / (num_par + 1e-10);
+		// LOG(INFO)<<"number of hard pairs: "<<num_par;
+	}
+
+	template <typename Dtype>
+	void SimilarityLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
+		const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom)
+	{
+		if (propagate_down[1])
+		{
+			LOG(FATAL) << this->type() << " Layer cannot backpropagate to label inputs. ";
+		}
+	}
+	INSTANTIATE_LAYER_GPU_FUNCS(SimilarityLossLayer);
+}  // namespace caffe
+
+// for (int i = 0; i < batch_size_ - 1; ++i)
+// 		{
+// 			for (int j = i + 1; j < batch_size_; ++j)
+// 			{
+// 				if (label_num > 1)
+// 				{
+// 					if_sim = caffe_cpu_dot(label_num, label + i * label_num,
+// 						label + j * label_num) > 0;
+// 				}
+// 				else
+// 				{
+// 					if_sim = ((static_cast<int>(label[i])) == 
+// 						(static_cast<int>(label[j])));
+// 				}
+// 				if (!if_sim)
+// 				{
+// 					continue;
+// 				}
+// 				int locat_sim = i * (batch_size_ - 1) + j - 1;
+// 				Dtype similarity_sim = (dot_product_mat_.cpu_data()[locat_sim]) /
+// 			    (norm_mat_.cpu_data()[locat_sim] + 1e-10);
+// 			    if (similarity_sim == 0)
+// 			    {
+// 			    	continue;
+// 			    }
+// 				Dtype similarity_dis = 0;
+// 				int dis_i = -1;
+// 				int locat_dis;
+// 				for(int dis = 0; dis < batch_size_; ++dis)
+// 				{
+// 					if (label_num > 1)
+// 					{
+// 						if_sim = caffe_cpu_dot(label_num, label + i * label_num,
+// 							label + dis * label_num) > 0;
+// 					}
+// 					else
+// 					{
+// 						if_sim = ((static_cast<int>(label[i])) == 
+// 							(static_cast<int>(label[dis])));
+// 					}
+// 					if (if_sim)
+// 					{
+// 						continue;
+// 					}
+// 					int this_locat_dis = i * (batch_size_ - 1) + dis - 1;
+// 					Dtype this_similarity_dis = 
+// 					  (dot_product_mat_.cpu_data()[this_locat_dis]) /
+// 					(norm_mat_.cpu_data()[this_locat_dis] + 1e-10);
+// 					if (this_similarity_dis > similarity_sim + alpha_)
+// 					{
+// 						continue;
+// 					}
+// 					if (this_similarity_dis + alpha_ < similarity_sim)
+// 					{
+// 						continue;
+// 					}
+// 					if (this_similarity_dis < similarity_dis)
+// 					{
+// 						continue;
+// 					}
+// 					similarity_dis = this_similarity_dis;
+// 					dis_i = dis;
+// 					locat_dis = this_locat_dis;
+// 				}
+// 				if (dis_i == -1)
+// 				{
+// 					continue;
+// 				}
+// 				if (similarity_dis == 0)
+// 				{
+// 					continue;
+// 				}
+// 				loss += similarity_dis + alpha_ - similarity_sim;
+// 				//gradient w.r.t. image i sim
+// 				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_sim) /
+// 					(norm_vec_.cpu_data()[i] + 1e-10) /
+// 					(norm_vec_.cpu_data()[i] + 1e-10),
+// 					bottom_data + i * code_length_, 0.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, 1.0 /
+// 					(norm_mat_.cpu_data()[locat_sim] + 1e-10),
+// 					bottom_data + j * code_length_, 1.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, (-1.0 * loss_weight),
+// 					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+// 					bottom_diff + i * code_length_);
+
+// 				//gradient w.r.t image j sim
+// 				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_sim) /
+// 					(norm_vec_.cpu_data()[j] + 1e-10) / 
+// 					(norm_vec_.cpu_data()[j] + 1e-10),
+// 					bottom_data + j * code_length_, (Dtype)0.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, ((Dtype)1.0) /
+// 					(norm_mat_.cpu_data()[locat_sim] + 1e-10),
+// 					bottom_data + i * code_length_, (Dtype)1.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, (-1.0 * loss_weight),
+// 					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+// 					bottom_diff + j * code_length_);
+
+// 				// gradient w.r.t image i dis
+// 				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_dis) /
+// 					(norm_vec_.cpu_data()[i] + 1e-10) /
+// 					(norm_vec_.cpu_data()[i] + 1e-10),
+// 					bottom_data + i * code_length_, (Dtype)0.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, ((Dtype)1.0) /
+// 					(norm_mat_.cpu_data()[locat_dis] + 1e-10),
+// 					bottom_data + dis_i * code_length_, (Dtype)1.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, loss_weight,
+// 					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+// 					bottom_diff + i * code_length_);
+
+// 				//gradient w.r.t image j_dis
+// 				caffe_gpu_axpby<Dtype>(code_length_, (-1.0)*(similarity_dis) /
+// 					(norm_vec_.cpu_data()[dis_i] + 1e-10) /
+// 					(norm_vec_.cpu_data()[dis_i] + 1e-10),
+// 					bottom_data + dis_i * code_length_, (Dtype)0.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, ((Dtype)1.0) /
+// 					(norm_mat_.cpu_data()[locat_dis] + 1e-10),
+// 					bottom_data + i * code_length_, (Dtype)1.0,
+// 					temp_diff_vec_.mutable_gpu_data());
+
+// 				caffe_gpu_axpby<Dtype>(code_length_, loss_weight,
+// 					temp_diff_vec_.gpu_data(), (Dtype)1.0,
+// 					bottom_diff + dis_i * code_length_);
+// 				++num_par;
+// 			}
+// 		}

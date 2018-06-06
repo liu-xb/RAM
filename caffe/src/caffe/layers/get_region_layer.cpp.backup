@@ -1,0 +1,96 @@
+#include <vector>
+
+#include "caffe/layers/get_region_layer.hpp"
+#include "caffe/util/math_functions.hpp"
+
+namespace caffe {
+// bottom[0] image
+// bottom[1] feature maps
+template <typename Dtype>
+void GetRegionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  topk_ = this->layer_param_.get_region_param().topk();
+  batchSize_ = bottom[0].shape(0);
+  imageSize_ = bottom[0].shape(2);
+  if (bottom[0].shape(2) != bottom.shape(3))
+  {
+    LOG(FATAL)<< "input image should be square";
+  }
+  featureChannel_ = bottom[1].shape(1);
+  featureSize_ = bottom[1].shape(2);
+  ratio_ = imageSize_ / featureSize_;
+  countPerIm_ = featureChannel_ * featureSize_ * featureSize_;
+  top[0].Reshape(batchSize_, 3*featureSize_*featureSize_, ratio_*2, ratio_*2);
+  LOG(INFO) << "Reshape done";
+}
+
+template <typename Dtype>
+void GetRegionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  ;
+}
+
+template <typename Dtype>
+void GetRegionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  for (int i = 0; i < batchSize_; ++i)
+  {
+    int* index = new int [topk_];
+    mygetlargest(topk_, countPerIm_, bottom[1]->cpu_data() + i * countPerIm_, index);
+    vector<vector <int> > tempfeature(featureSize_, vector<int>(featureSize_, 0));
+    for (int j = 0; j < topk_; ++j)
+    {
+      int tempc = index[j] / (featureSize_ * featureSize_);
+      int tempw = (index[j] - tempc * featureSize_ * featureSize_) / featureSize_;
+      int temph = index[j] - tempc * featureSize_*featureSize_ - tempw * featureSize_;
+      if tempfeature[tempw][temph] < *(bottom[1]->cpu_data() + i * countPerIm_ + tempc * featureSize_*featureSize_ + tempw * featureSize_ + temph )
+      {
+        tempfeature[tempw][temph] = *(bottom[1]->cpu_data() + i * countPerIm_ + tempc * featureSize_*featureSize_ + tempw * featureSize_ + temph );
+      }
+      Dtype tempmax;
+      mymax(tempfeature, featureSize_, &tempmax);
+    }
+    for (int j = 0; j < featureSize_; ++j)
+    {
+      for (int k = 0; k < featureSize_; ++k)
+      {
+        if (tempfeature[j][k] == 0 )
+        {
+          continue;
+        }
+        int x1 = j * ratio_ - ratio_ / 2;
+        if (x1 < 0) x1 = 0;
+        int x2 = j * ratio_ + ratio_ * 3 / 2 - 1;
+        if (x2 > imageSize_-1) x2 = imageSize_ - 1;
+        int y1 = k * ratio_ - ratio_/2;
+        if (y1 < 0) y1 = 0;
+        int y2 = k * ratio_ + ratio_*3/2-1;
+        if (y2 > imageSize_-1) y2=imageSize_ -1;
+        caffe_cpu_scale
+      }
+    }
+  }
+}
+
+template <typename Dtype>
+void GetRegionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
+      const vector<Blob<Dtype>*>& top) {
+  Forward_cpu(bottom, top);
+}
+
+template <typename Dtype>
+void GetRegionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {;}
+
+template <typename Dtype>
+void GetRegionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
+      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {;}
+
+#ifdef CPU_ONLY
+STUB_GPU(GetRegionLayer);
+#endif
+
+INSTANTIATE_CLASS(GetRegionLayer);
+REGISTER_LAYER_CLASS(GetRegion);
+
+}  // namespace caffe
