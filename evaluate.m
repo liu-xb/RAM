@@ -2,8 +2,8 @@ nQuery = 1678;
 nTest = 11579;
 cm = 'sudo caffe/build/tools/my_extract_features ';
 
-% sn = 'snapshot/veri-attribute-finetune_iter_80000.caffemodel';
-sn = ' model/veri/RAM.caffemodel ';
+sn = 'snapshot/veri-RAM-finetune_iter_60000.caffemodel';
+% sn = ' model/veri/RAM.caffemodel ';
 
 exfile = ' ex-mod-col-fc6.prototxt';
 
@@ -16,7 +16,7 @@ datafi = [datafi, 'features/p1.data,features/p2.data,'];
 datafi = [datafi, 'features/p3.data,features/ps.data'];
 datafi = [datafi, ',features/at.data'];
 
-aha=system([cm, sn, exfile, blobs, datafi, ' 51 1']);
+% aha=system([cm, sn, exfile, blobs, datafi, ' 51 1']);
 if aha>0
     fprintf('something wrong!!!!\n')
     return
@@ -37,7 +37,7 @@ verifeature_bn = norm_code(verifeature_bn);
 ps = norm_code(ps);
 at = norm_code(at);
 
-verifeature = [verifeature; verifeature_bn;ps;at];
+% verifeature = [verifeature; verifeature_bn;ps;at];
 % verifeature = verifeature_bn;
 queryfeature = verifeature(:, 1:1678);
 testfeature = verifeature(:, 1679:end);
@@ -84,7 +84,7 @@ end
 CMC = mean(CMC);
 fprintf('RAM: mAP = %f,\nr1 = %f,\nr5 = %f\r\n',...
     mean(ap), CMC(1), CMC(5));
-figure;
+% figure;
 s = 50;
 CMC_curve = CMC;
 % plot(1:s, CMC_curve(:, 1:s));
