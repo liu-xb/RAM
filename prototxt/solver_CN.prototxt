@@ -1,0 +1,16 @@
+net: "prototxt/train_CN.prototxt"
+test_iter: 200
+test_interval: 100000000
+base_lr: 1e-3
+test_initialization: false
+lr_policy: "step"
+gamma: 0.8
+stepsize: 6000
+display: 1000
+max_iter: 60000
+momentum: 0.9
+weight_decay: 0.0005
+snapshot: 60000
+snapshot_prefix: "./snapshot/veri-CN"
+solver_mode: GPU
+average_loss: 100
