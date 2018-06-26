@@ -455,6 +455,12 @@ layer {
   type: "InnerProduct"
   inner_product_param {
     num_output: 1024
+     weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
   }
   param {    lr_mult: 10    decay_mult: 1  }
   param {    lr_mult: 20   decay_mult: 0  }
@@ -481,6 +487,12 @@ layer {
   type: "InnerProduct"
   inner_product_param {
     num_output: 1024
+     weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
   }
   param {    lr_mult: 10    decay_mult: 1  }
   param {    lr_mult: 20    decay_mult: 0  }
@@ -557,6 +569,12 @@ layer {
   type: "InnerProduct"
   inner_product_param {
     num_output: 1024
+     weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
   }
   param {    lr_mult: 10    decay_mult: 1  }
   param {    lr_mult: 20    decay_mult: 0  }
@@ -583,6 +601,12 @@ layer {
   type: "InnerProduct"
   inner_product_param {
     num_output: 1024
+     weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
   }
   param {    lr_mult: 10    decay_mult: 1  }
   param {    lr_mult: 20    decay_mult: 0  }
@@ -659,6 +683,12 @@ layer {
   type: "InnerProduct"
   inner_product_param {
     num_output: 1024
+     weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
   }
   param {    lr_mult: 10    decay_mult: 1  }
   param {    lr_mult: 20   decay_mult: 0  }
@@ -685,6 +715,12 @@ layer {
   type: "InnerProduct"
   inner_product_param {
     num_output: 1024
+     weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
   }
   param {    lr_mult: 10    decay_mult: 1  }
   param {    lr_mult: 20    decay_mult: 0  }
