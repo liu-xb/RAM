@@ -18,7 +18,7 @@ You can simply train a RAM on VeRi by running:<br>
 sh train_veri.sh
 ```
 The final model is saved as "snapshot/veri-RAM-finetune_iter_60000.caffemodel".
-Our models on VeRi can be downloaded from [here](https://pan.baidu.com/s/17fnjp1fAvWNmIrF1wzkQqg).
+Our models and extracted features on VeRi can be downloaded from [here](https://pan.baidu.com/s/17fnjp1fAvWNmIrF1wzkQqg).
 
 We provide a new caffe layer to sample mini-batch. Please refer to "prototxt/train_RAM.prototxt" for an example of usage.
 
