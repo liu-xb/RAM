@@ -2,7 +2,7 @@ nQuery = 1678;
 nTest = 11579;
 cm = 'sudo caffe/build/tools/my_extract_features ';
 
-sn = 'snapshot/veri-RAM-finetune_iter_60000.caffemodel';
+sn = 'snapshot/veri-RAM_iter_60000.caffemodel';
 % sn = ' model/veri/RAM.caffemodel ';
 
 exfile = ' ex-mod-col-fc6.prototxt';
@@ -16,29 +16,28 @@ datafi = [datafi, 'features/p1.data,features/p2.data,'];
 datafi = [datafi, 'features/p3.data,features/ps.data'];
 datafi = [datafi, ',features/at.data'];
 
-% aha=system([cm, sn, exfile, blobs, datafi, ' 51 1']);
+aha=system([cm, sn, exfile, blobs, datafi, ' 51 1']);
 if aha>0
     fprintf('something wrong!!!!\n')
     return
 end
 verifeature = read_code('features/fc7.data', 13257, 4096);
 verifeature_bn = read_code('features/fc7-bn.data',13257, 4096);
-% p1 = read_code('features/p1.data',13257,1024);
-% p2 = read_code('features/p2.data',13257,1024);
-% p3 = read_code('features/p3.data',13257,1024);
-ps = read_code('features/ps.data',13257,3072);
+p1 = read_code('features/p1.data',13257,1024);
+p2 = read_code('features/p2.data',13257,1024);
+p3 = read_code('features/p3.data',13257,1024);
+% ps = read_code('features/ps.data',13257,3072);
 at = read_code('features/at.data',13257,512);
 
 verifeature = norm_code(verifeature);
 verifeature_bn = norm_code(verifeature_bn);
-% p1 = norm_code(p1);
-% p2 = norm_code(p2);
-% p3 = norm_code(p3);
-ps = norm_code(ps);
+p1 = norm_code(p1);
+p2 = norm_code(p2);
+p3 = norm_code(p3);
+% ps = norm_code(ps);
 at = norm_code(at);
 
-% verifeature = [verifeature; verifeature_bn;ps;at];
-% verifeature = verifeature_bn;
+verifeature = [verifeature; verifeature_bn;p1;p2;p3;at];
 queryfeature = verifeature(:, 1:1678);
 testfeature = verifeature(:, 1679:end);
 dist = 1 - testfeature' * queryfeature;
