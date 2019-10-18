@@ -1,9 +1,9 @@
 # RAM (ICME2018)
 
-This is the code of our ICME 2018 paper, "RAM: A Region-Aware Deep Model for Vehicle Re-Identification".<br>
+This is the code of my ICME 2018 paper, "RAM: A Region-Aware Deep Model for Vehicle Re-Identification".<br>
 If you find this help, please kindly cite our paper:<br>
 ```
-@inproceedings{cime-ram-liu,
+@inproceedings{icme-ram-liu,
   Author = {Liu, Xiaobin and Zhang, Shiliang and Huang, Qingming and Gao, Wen},<br>
   Booktitle = {ICME},
   Title = {RAM: A Region-Aware Deep Model for Vehicle Re-Identification},
