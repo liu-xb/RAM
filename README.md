@@ -1,4 +1,4 @@
-# [RAM (ICME'18)](https://ieeexplore.ieee.org/document/8486589)
+# [RAM: A Region-Aware Deep Model for Vehicle Re-Identification (ICME'18)](https://ieeexplore.ieee.org/document/8486589)
 
 ![](icme2018.jpg)
 
