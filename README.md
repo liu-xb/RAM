@@ -31,6 +31,6 @@ We provide an evaluate script, "evaluate.m", on VeRi following https://github.co
 We provide a tools in caffe to extract features and write features to binary files. We also provide a tools to read features from binary file, "read_code.m", and a tools to normalize features, "norm_code.m". An example of the usage of these tools can be found in "evaluate.m".
 
 ## Contact me
-Email: xbliu.vmc@pku.edu.cn <br>
+Email: xbliu DOT vmc AT pku.edu.cn <br>
 Homepage: https://liu-xb.github.io <br>
 Please feel free to contact me if you have any question.
